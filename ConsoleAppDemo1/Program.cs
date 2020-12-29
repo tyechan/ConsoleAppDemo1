@@ -21,34 +21,91 @@ namespace ConsoleAppDemo1
             driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(10);
 
             driver.FindElement(By.Name("username")).SendKeys("jkqcrty");
-            driver.FindElement(By.Name("password")).SendKeys("******");
+            driver.FindElement(By.Name("password")).SendKeys("982468");
             driver.FindElement(By.Name("user_form")).Submit();
 
-            string csv = File.ReadAllText(@"");
+            string csv = File.ReadAllText(@"E:\Downloads\guochanzipai.csv");
             foreach (var line in CsvReader.ReadFromText(csv))
             {
                 Console.WriteLine(line);
                 driver.Navigate().GoToUrl(line[1]);
-                IWebDriver validate = driver.SwitchTo().Frame(driver.FindElement(By.Id("tcaptcha_transform")));
 
+                driver.FindElement(By.Id("TencentCaptcha")).Click();
                 Thread.Sleep(2000);
-                var slideBkg = validate.FindElement(By.Id("slideBkg"));
+                IWebDriver validate = driver.SwitchTo().Frame(driver.FindElement(By.Id("tcaptcha_iframe")));
+
+            GO1:
+
+                Thread.Sleep(3000);
+
+                var slideBkg = validate.FindElement(By.Id("slideBg"));
+
+                while (true)
+                {
+                    if (!string.IsNullOrEmpty(slideBkg.GetAttribute("src")))
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        Thread.Sleep(1000);
+                    }
+                }
 
                 string newUrl = slideBkg.GetAttribute("src");
                 string oldUrl = newUrl.Replace("img_index=1", "img_index=0");
                 Bitmap oldBmp = (Bitmap)GetImg(oldUrl);
                 Bitmap newBmp = (Bitmap)GetImg(newUrl);
+                oldBmp.Save("old.png");
+                newBmp.Save("new.png");
 
                 int left = GetArgb(oldBmp, newBmp);
                 int leftShift = (int)(left * ((double)slideBkg.Size.Width / (double)newBmp.Width) - 36);
+
+                if (leftShift <= 0)
+                {
+                    validate.FindElement(By.Id("reload")).Click();
+                    Thread.Sleep(3000);
+                    goto GO1;
+                }
 
                 var slideBlock = validate.FindElement(By.Id("slideBlock"));
                 Actions actions = new Actions(driver);
                 actions.DragAndDropToOffset(slideBlock, leftShift, 0).Build().Perform();
 
+                Thread.Sleep(10000);
+
+                while (true)
+                {
+                    try
+                    {
+                        if (validate.FindElement(By.Id("downs10")).Displayed)
+                        {
+                            break;
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        Thread.Sleep(3000);
+                    }
+
+                    try
+                    {
+                        if (slideBkg.Displayed)
+                        {
+                            validate.FindElement(By.Id("reload")).Click();
+                            goto GO1;
+                        }
+                    }
+                    catch (StaleElementReferenceException)
+                    {
+                        continue;
+                    }
+                }
+
                 validate.FindElement(By.Id("downs10")).Click();
                 Console.WriteLine(line + " done");
-                Thread.Sleep(20000);
+                Thread.Sleep(60000);
             }
 
             Console.ReadLine();
